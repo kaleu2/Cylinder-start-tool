@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+# Flugdaten und Auswertungen gehören nicht ins Repository
+*.igc
+*.xlsx
+*.cup
+.github/
