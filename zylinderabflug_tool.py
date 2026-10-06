@@ -249,12 +249,18 @@ class App(tk.Tk):
         self._load_stored_cup()
         self._restore_settings()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.bind_all("<Button-4>", self._on_mousewheel)
+        self.bind_all("<Button-5>", self._on_mousewheel)
         self._fit_window(initial=True)
 
     def _fit_window(self, initial=False):
-        """Fenster so gross, dass alles sichtbar ist (bis maximal Bildschirmgroesse)."""
+        """Fenster so gross, dass moeglichst alles sichtbar ist; sonst Scrollbalken."""
         self.update_idletasks()
-        w = max(self.winfo_reqwidth(), 900)
+        body_w, body_h = self.body.winfo_reqwidth(), self.body.winfo_reqheight()
+        self.canvas.configure(width=body_w, height=body_h)
+        self.update_idletasks()
+        w = max(self.winfo_reqwidth() + 20, 900)
         h = self.winfo_reqheight() + 10
         if not initial:
             w = max(w, self.winfo_width())
@@ -262,7 +268,51 @@ class App(tk.Tk):
         w = min(w, self.winfo_screenwidth() - 40)
         h = min(h, self.winfo_screenheight() - 90)
         self.geometry(f"{w}x{h}")
-        self.minsize(min(w, 900), min(h, 600))
+        # Canvas darf schrumpfen: kleine Bildschirme -> Scrollbalken statt abgeschnittener Inhalt
+        self.canvas.configure(width=1, height=1)
+        self.minsize(min(w, 700), min(h, 400))
+        self.update_idletasks()
+        self._update_scrollbar()
+
+    def _on_body_configure(self, event=None):
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self._update_scrollbar()
+
+    def _on_canvas_configure(self, event):
+        # Inhalt immer so breit wie das Fenster
+        self.canvas.itemconfigure(self._body_id, width=event.width)
+        self._update_scrollbar()
+
+    def _update_scrollbar(self):
+        """Scrollbalken nur zeigen, wenn der Inhalt hoeher als das Fenster ist."""
+        try:
+            need = self.body.winfo_reqheight() > self.canvas.winfo_height() + 1
+        except tk.TclError:
+            return
+        if need:
+            if not self.vscroll.winfo_ismapped():
+                self.vscroll.pack(side="right", fill="y", before=self.canvas)
+        elif self.vscroll.winfo_ismapped():
+            self.vscroll.pack_forget()
+            self.canvas.yview_moveto(0)
+
+    def _on_mousewheel(self, event):
+        w = event.widget
+        try:
+            cls = w.winfo_class()
+        except Exception:
+            return
+        if cls in ("Text", "Listbox", "Treeview", "TCombobox"):
+            return          # diese Felder scrollen selbst
+        if not self.vscroll.winfo_ismapped():
+            return
+        if getattr(event, "num", None) == 4:
+            step = -1
+        elif getattr(event, "num", None) == 5:
+            step = 1
+        else:
+            step = -1 if event.delta > 0 else 1
+        self.canvas.yview_scroll(step * 3, "units")
 
     def _change_language(self, event=None):
         """Sprache sofort umschalten: Oberflaeche neu aufbauen, Eingaben bleiben erhalten."""
@@ -308,8 +358,21 @@ class App(tk.Tk):
         ttk.Button(frm_actions, text=tr("Parameter speichern..."), command=self._save_params).pack(side="left", padx=4)
         ttk.Button(frm_actions, text=tr("Auswertung starten"), command=self._run).pack(side="right", padx=4)
 
+        # --- Scrollbarer Hauptbereich (Scrollbalken rechts, Mausrad) ---
+        mid = ttk.Frame(self)
+        mid.pack(side="top", fill="both", expand=True)
+        self.canvas = tk.Canvas(mid, highlightthickness=0, borderwidth=0)
+        self.vscroll = ttk.Scrollbar(mid, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.vscroll.set)
+        self.vscroll.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.body = ttk.Frame(self.canvas)
+        self._body_id = self.canvas.create_window((0, 0), window=self.body, anchor="nw")
+        self.body.bind("<Configure>", self._on_body_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
         # --- Ordner ---
-        frm_folders = ttk.LabelFrame(self, text=tr("Ordner"))
+        frm_folders = ttk.LabelFrame(self.body, text=tr("Ordner"))
         frm_folders.pack(fill="x", **pad)
 
         self.src_var = tk.StringVar()
@@ -329,7 +392,7 @@ class App(tk.Tk):
         ttk.Button(frm_folders, text=tr("Wechseln..."), command=self._change_cup).grid(row=2, column=2, **pad)
 
         # --- Start-Zylinder ---
-        frm_start = ttk.LabelFrame(self, text=tr("Start-Zylinder (Task Sheet)"))
+        frm_start = ttk.LabelFrame(self.body, text=tr("Start-Zylinder (Task Sheet)"))
         frm_start.pack(fill="x", **pad)
 
         self.start_lat_var = tk.StringVar()
@@ -366,7 +429,7 @@ class App(tk.Tk):
                   foreground="#555").grid(row=4, column=2, columnspan=2, sticky="w", **pad)
 
         # --- Tagesparameter ---
-        frm_day = ttk.LabelFrame(self, text=tr("Tagesparameter (Task Sheet, national ggf. abweichend)"))
+        frm_day = ttk.LabelFrame(self.body, text=tr("Tagesparameter (Task Sheet, national ggf. abweichend)"))
         frm_day.pack(fill="x", **pad)
 
         self.max_gsp_var = tk.StringVar(value="160")
@@ -394,7 +457,7 @@ class App(tk.Tk):
             ttk.Entry(frm_day, textvariable=var, width=10).grid(row=r, column=c * 2 + 1, **pad)
 
         # --- Baro-Kalibrierung ---
-        frm_baro = ttk.LabelFrame(self, text=tr("Baro-Höhe kalibrieren (optional)"))
+        frm_baro = ttk.LabelFrame(self.body, text=tr("Baro-Höhe kalibrieren (optional)"))
         frm_baro.pack(fill="x", **pad)
         self.cal_on_var = tk.BooleanVar(value=False)
         self.ref_elev_var = tk.StringVar(value="")
@@ -412,7 +475,7 @@ class App(tk.Tk):
                   ).grid(row=1, column=0, columnspan=5, sticky="w", **pad)
 
         # --- Streckenfuehrung ---
-        frm_zones = ttk.LabelFrame(self, text=tr("Streckenführung in Flugreihenfolge (letzter Punkt = Ziel)"))
+        frm_zones = ttk.LabelFrame(self.body, text=tr("Streckenführung in Flugreihenfolge (letzter Punkt = Ziel)"))
         frm_zones.pack(fill="both", expand=True, **pad)
 
         cols = ("name", "lat", "lon", "radius", "r_min", "angles", "max_alt", "finish")
@@ -436,7 +499,7 @@ class App(tk.Tk):
         ttk.Button(btns_zone, text=tr("Nach unten"), command=lambda: self._move_zone(1)).pack(fill="x", pady=2)
 
         # --- Log ---
-        frm_log = ttk.LabelFrame(self, text=tr("Protokoll"))
+        frm_log = ttk.LabelFrame(self.body, text=tr("Protokoll"))
         frm_log.pack(fill="both", expand=True, **pad)
         self.log = tk.Text(frm_log, height=6, wrap="word")
         self.log.pack(fill="both", expand=True, padx=6, pady=6)
