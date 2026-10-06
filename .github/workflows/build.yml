@@ -5,6 +5,9 @@ on:
   push:
     tags: ["v*"]            # bei einem Tag wie v1.0.0 wird zusätzlich ein Release erzeugt
 
+permissions:
+  contents: write          # nötig, damit der Workflow ein Release anlegen darf
+
 jobs:
   build:
     strategy:
