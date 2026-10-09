@@ -4,17 +4,74 @@
 
 Evaluates the Annex A "Cylinder Start" (SC3A 7.4.4, edition 2025) for one
 contest day from the raw IGC files submitted by the pilots (before they are
-uploaded to SoaringSpot) and produces:
+scored by SeeYou Competition) and produces:
 
 - **Copies** of the IGC files (originals are never touched) with the task
-  written into them: task points plus the corrected start point (a 1 m mini
-  cylinder exactly at the credited PEV) in LSEEYOU format, for import into
-  SeeYou Competition via "Use task from IGC file". If a file already contains
-  a SoaringSpot task block (e.g. on a second run), only the start line in it
-  is replaced instead of appending everything again.
+  written into them. They are saved into the target folder, **which should be
+  the folder SeeYou Competition searches IGC files in**. Each copy contains the
+  task points plus the corrected start point (a 1 m mini cylinder exactly at
+  the credited PEV) in LSEEYOU format, for import into SeeYou Competition via
+  "Use task from IGC file". If a file already contains a SoaringSpot task block
+  (e.g. on a second run), only the start line in it is replaced instead of
+  appending everything again.
 - **One common report** (`Cylinder_Start_Report.xlsx`, German UI language:
-  `Zylinderabflug_Report.xlsx`) with start method, validity, groundspeed,
-  loss of height and all remarks per pilot.
+  `Zylinderabflug_Report.xlsx`) with start method, start/finish altitude (baro),
+  groundspeed, loss of height, penalty points and all remarks per pilot.
+
+Line and sector start days are **not** handled by this tool (SeeYou does that
+itself) - only use it for days with a cylinder start.
+
+## Quick start: scoring one contest day
+
+**Once, before the first use**
+1. Get the program (see [Installation](#installation)): the easiest way is the
+   ready-made `Zylinderabflug_Tool.exe` from the **Releases** page of this
+   repository - no Python, no terminal.
+2. Have the **CUP file** of the competition (turn points with coordinates)
+   ready. The tool asks for it once and remembers it.
+
+**Every contest day**
+1. **Collect the raw IGC files** of the day (one class only) in one folder -
+   the *source folder*. Use the files as the pilots delivered them, not files
+   already downloaded from SoaringSpot after scoring.
+2. **Start the program** (double-click on the `.exe`).
+3. **Choose the folders:**
+   - *Source folder* = the folder from step 1.
+   - *Target folder* = the folder where SeeYou Competition looks for the IGC
+     files of this day. Use a **different folder** than the source folder, so
+     that the raw files and the copies (named `<original name>_cyl.igc`) are
+     not mixed up.
+4. **Load the task** - click "Load task from SoaringSpot web page...", paste
+   the link of the day's *task* page (a results link is converted
+   automatically) and select the CUP file when asked. The contest day is taken
+   from the link.
+5. **Check the fields** - the tool cannot read everything from the web page:
+   - **Gate opening (local time)**: yellow/bold means it still has the default
+     value (03:00:00) - enter the real time from the task sheet. If the page
+     has "Task notes", they are shown in a window; copy gate opening, maximum
+     groundspeed and maximum loss of height from there.
+   - **Max. groundspeed / max. loss of height / time zone**: must match the
+     task sheet. The Annex A values are preset; change them for national rules.
+   - Optionally: **calibrate baro** to the field elevation (see below).
+6. Click **"Start evaluation"**. The log shows the progress; when it is done,
+   the target folder contains the IGC copies and the Excel report.
+7. **Read the report** (`Cylinder_Start_Report.xlsx`) before going on. Every
+   pilot has one row, coloured by the most severe remark:
+   **red** = penalty or invalid, **yellow** = please check manually,
+   **grey** = information only (e.g. normal outlanding). Look at all red and
+   yellow rows first.
+8. **Score in SeeYou Competition:** set the day's task with
+   "Use task from IGC file" (choose one of the copies in the target folder)
+   and load the flights from the target folder. The start of every pilot is
+   now the 1 m cylinder at his credited start fix, so SeeYou calculates the
+   start time and altitude correctly. (Menu names can differ slightly between
+   SeeYou versions.)
+9. **Enter the penalties manually in SeeYou**: the report contains the time
+   penalty (+5 min for an exit start or a short PEV interval) and the points
+   for excess groundspeed and loss of height per pilot.
+
+The next day: start the program again - folders, parameters and the CUP file
+are remembered; only today's date and the gate opening are reset.
 
 ## Where the task comes from - three ways
 
@@ -34,21 +91,30 @@ uploaded to SoaringSpot) and produces:
 2. **From an already processed IGC file**: button "Load task from IGC file
    (SoaringSpot)...". Works only if the chosen file already contains a
    SoaringSpot task block - which is **not** the case for the **raw pilot
-   files before scoring** (the block is created by the SoaringSpot upload,
-   usually AFTER scoring).
+   files before scoring** and also **not** for files that already have an
+   altered task with a personal start point (the SoaringSpot block is created
+   by the SoaringSpot upload, usually AFTER scoring).
 3. **CUP file + manual entry**: for the case that SoaringSpot is not
-   reachable as expected. Add turn points one by one (take coordinates from a
-   CUP file or type them), plus radius, optionally sector (inner
-   radius/opening angle) and maximum altitude, and enter the daily parameters
-   by hand.
+   reachable as expected or you want to score with another tool than SeeYou.
+   Add turn points one by one (take coordinates from a CUP file or type
+   them), plus radius, optionally sector (inner radius/opening angle) and
+   maximum altitude, and enter the daily parameters by hand.
 
 All three ways lead to the same form - whatever the web page does not provide
 (coordinates, gate opening, max. groundspeed/loss of height without notes)
 can be added or corrected by hand afterwards.
 
-## Use without a terminal - three options
+## Installation
 
-**Least effort for permanent use: standalone .exe (set up once)**
+Three options, none of them needs a terminal:
+
+**1. Download the ready-made .exe (easiest)**
+Open the **Releases** page of this repository and download
+`Zylinderabflug_Tool.exe`. Copy it to the desktop - a double-click starts the
+program. Windows may show a "SmartScreen" warning because the file is not
+digitally signed: click "More info" -> "Run anyway".
+
+**2. Build the .exe yourself (Windows, Python installed)**
 1. Put all files into one folder.
 2. Double-click `build_exe.bat` (briefly opens a window that installs and
    builds everything automatically - type nothing, just wait).
@@ -57,35 +123,34 @@ can be added or corrected by hand afterwards.
    is enough, **no Python and no terminal needed**, also not on another
    Windows computer.
 
-**Alternative without a preparation step, if Python is already installed:**
+**3. Without building, if Python is already installed**
 1. Double-click `install.bat` (once; installs `openpyxl`, `requests` and
    `beautifulsoup4`).
 2. Afterwards a double-click on `Zylinderabflug_Tool.pyw` starts the user
    interface directly, without a console window.
 
 **Only if Python is missing completely:** install it from python.org and make
-sure to tick "Add python.exe to PATH" - afterwards one of the two ways above
-works.
+sure to tick "Add python.exe to PATH" - afterwards option 2 or 3 works.
 
 All `.py` files (including `i18n.py` and `en_dict.py`) must be in the same
-folder.
+folder when running from source (options 2 and 3).
 
-## Usage
+## Settings in detail
 
-1. Choose the **source folder** (raw IGC files of the pilots for the contest
-   day) and the **target folder**.
-2. Load the task (see above, one of the three ways) and check/complete the
-   fields. The gate opening field is highlighted yellow/bold as long as it
-   still has its default value (03:00:00).
-3. Check/adjust the **daily parameters** (max. groundspeed, max. loss of
-   height, minimum PEV interval, etc.) - Annex A default values are preset
-   and can be overwritten directly for national contests with different rules.
-4. Optionally enable **baro calibration** and enter the field elevation.
-5. With "Save/Load parameters" a data set can be saved as JSON and reused on
-   the next contest day.
-6. Click "Start evaluation".
-7. Read the created copies into SeeYou Competition with "Use task from IGC
-   file"; enter the penalties from the report manually in SeeYou.
+- **Daily parameters** (max. groundspeed, max. loss of height, minimum PEV
+  interval, etc.): Annex A default values are preset and can be overwritten
+  directly for national contests with different rules.
+- **Baro calibration** (optional): tick "Calibrate baro to reference
+  elevation" and enter the field elevation (m MSL). The stationary phase at
+  the start of the file is then set to this elevation. If a file starts in the
+  air it stays uncalibrated (remark in the report). The loss of height does
+  not change through the calibration, only the reported start/finish
+  altitudes. Altitudes in the report are always barometric.
+- **Save/Load parameters** saves a complete data set as JSON, e.g. to reuse
+  the task of a previous day.
+- **If the window is larger than your screen**: use the scroll bar on the right
+  or the mouse wheel. The buttons "Load/Save parameters" and "Start
+  evaluation" at the bottom are always visible.
 
 ## Language
 
@@ -108,13 +173,18 @@ Each pilot row has the colour of its most severe remark: **red** = penalty or
 invalid, **yellow** = check, **grey** = note only (e.g. normal outlanding,
 ignored irrelevant PEV). Penalty points are whole numbers (rounded half up).
 
+## Troubleshooting
+
+| Problem | What to do |
+|---|---|
+| "Task page cannot be read" / no turn points found | Check that the link points to a *task* page of one contest day (`.../task-N-on-<date>`), or enter the task manually (way 3). |
+| The tool asks for a CUP file again | Some turn point names of the task no longer match the stored CUP file - choose the CUP file of this competition. |
+| No `.igc` files found | The source folder must directly contain the files (subfolders are not searched). |
+| A pilot has "no valid start" | See the remark in the report: no PEV in the cylinder and no exit after gate opening, or start speed more than 50 km/h above the limit. |
+| Gate opening field is yellow | It still has the default 03:00:00 - enter the real value. |
+
 ## Open points / known limits of this version
 
-- The web page analysis was developed and tested against the actual content
-  of two real SoaringSpot task pages - the network request itself
-  (`requests.get`) could not be run against the real site from the
-  development environment. Please check once during the first real use that
-  the retrieval works.
 - For the internal task-order check (when was which point reached, for loss
   of height) only the outer radius of each zone is checked as a full circle,
   no exact sector angle limits - irrelevant for the actual scoring, SeeYou
