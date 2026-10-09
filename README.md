@@ -4,14 +4,15 @@
 
 Evaluates the Annex A "Cylinder Start" (SC3A 7.4.4, edition 2025) for one
 contest day from the raw IGC files submitted by the pilots (before they are
-uploaded to SoaringSpot) and produces:
+scored by SeeYou Competition) and produces:
 
 - **Copies** of the IGC files (originals are never touched) with the task
-  written into them: task points plus the corrected start point (a 1 m mini
-  cylinder exactly at the credited PEV) in LSEEYOU format, for import into
-  SeeYou Competition via "Use task from IGC file". If a file already contains
-  a SoaringSpot task block (e.g. on a second run), only the start line in it
-  is replaced instead of appending everything again.
+  written into them are saved into the target folder **which should be the
+  folder SeeYou Competition searches IGC files in**: task points plus the
+  corrected start point (a 1 m mini cylinder exactly at the credited PEV) in
+  LSEEYOU format, for import into SeeYou Competition via "Use task from IGC file".
+  If a file already contains a SoaringSpot task block (e.g. on a second run),
+  only the start line in it is replaced instead of appending everything again.
 - **One common report** (`Cylinder_Start_Report.xlsx`, German UI language:
   `Zylinderabflug_Report.xlsx`) with start method, validity, groundspeed,
   loss of height and all remarks per pilot.
@@ -34,10 +35,10 @@ uploaded to SoaringSpot) and produces:
 2. **From an already processed IGC file**: button "Load task from IGC file
    (SoaringSpot)...". Works only if the chosen file already contains a
    SoaringSpot task block - which is **not** the case for the **raw pilot
-   files before scoring** (the block is created by the SoaringSpot upload,
+   files before scoring** and also **not** for files that already have an altered task with personal start point(the block is created by the SoaringSpot upload,
    usually AFTER scoring).
 3. **CUP file + manual entry**: for the case that SoaringSpot is not
-   reachable as expected. Add turn points one by one (take coordinates from a
+   reachable as expected or you want to score with another tool than SeeYou. Add turn points one by one (take coordinates from a
    CUP file or type them), plus radius, optionally sector (inner
    radius/opening angle) and maximum altitude, and enter the daily parameters
    by hand.
@@ -110,11 +111,6 @@ ignored irrelevant PEV). Penalty points are whole numbers (rounded half up).
 
 ## Open points / known limits of this version
 
-- The web page analysis was developed and tested against the actual content
-  of two real SoaringSpot task pages - the network request itself
-  (`requests.get`) could not be run against the real site from the
-  development environment. Please check once during the first real use that
-  the retrieval works.
 - For the internal task-order check (when was which point reached, for loss
   of height) only the outer radius of each zone is checked as a full circle,
   no exact sector angle limits - irrelevant for the actual scoring, SeeYou
