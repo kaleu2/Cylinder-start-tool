@@ -32,8 +32,11 @@ itself) - only use it for days with a cylinder start.
 
 **Every contest day**
 1. **Collect the raw IGC files** of the day (one class only) in one folder -
-   the *source folder*. Use the files as the pilots delivered them, not files
-   already downloaded from SoaringSpot after scoring.
+   the *source folder*. For a real contest day these are the files as the
+   pilots delivered them. To **test with an old, already scored day**, you can
+   also use IGC files downloaded from SoaringSpot: they already contain a task
+   block, which the tool updates (only the start line is replaced). Do not use
+   copies that this tool has already written (`..._cyl.igc`) as input.
 2. **Start the program** (double-click on the `.exe`).
 3. **Choose the folders:**
    - *Source folder* = the folder from step 1.

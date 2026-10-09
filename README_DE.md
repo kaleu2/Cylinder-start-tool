@@ -32,8 +32,12 @@ Tage mit Linien- oder Sektorstart werden von diesem Tool **nicht** bearbeitet
 
 **An jedem Wertungstag**
 1. **Rohe IGC-Dateien** des Tages (nur eine Klasse) in einem Ordner sammeln -
-   dem *Quellordner*. Die Dateien so verwenden, wie die Piloten sie abgegeben
-   haben, nicht die nach der Wertung von SoaringSpot heruntergeladenen.
+   dem *Quellordner*. An einem echten Wertungstag sind das die Dateien so, wie
+   die Piloten sie abgegeben haben. Zum **Testen mit einem alten, schon
+   gewerteten Tag** funktionieren auch von SoaringSpot heruntergeladene
+   IGC-Dateien: Sie enthalten bereits einen Aufgabenblock, den das Tool
+   aktualisiert (nur die Start-Zeile wird ersetzt). Vom Tool bereits erzeugte
+   Kopien (`..._cyl.igc`) nicht wieder als Eingabe verwenden.
 2. **Programm starten** (Doppelklick auf die `.exe`).
 3. **Ordner wählen:**
    - *Quellordner* = der Ordner aus Schritt 1.
