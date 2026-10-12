@@ -22,3 +22,11 @@ echo.
 echo Tipp: Mit "build_exe.bat" laesst sich einmalig eine eigenstaendige .exe
 echo erzeugen, die auch ohne installiertes Python laeuft.
 pause
+
+cd ~/Dokumente/Apps/Zylinderabflug
+git add -A
+git commit -m "Report öffnen, schlankerer Report-Kopf"
+git pull origin main --no-rebase --no-edit
+git push
+git tag v1.1.1
+git push origin v1.1.1

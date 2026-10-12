@@ -58,7 +58,8 @@ itself) - only use it for days with a cylinder start.
    - Optionally: **adjust baro** to the airfield elevation (see below).
 6. Click **"Start evaluation"**. The log shows the progress; when it is done,
    the target folder contains the IGC copies and the Excel report.
-7. **Read the report** (`Cylinder_Start_Report.xlsx`) before going on. Every
+7. **Read the report** (`Cylinder_Start_Report.xlsx`) before going on - the
+   button **"Open report"** at the bottom opens it directly in Excel. Every
    pilot has one row, coloured by the most severe remark:
    **red** = penalty or invalid, **yellow** = please check manually,
    **grey** = information only (e.g. normal outlanding). Look at all red and
@@ -179,7 +180,7 @@ for a pilot:
 3. Select the start and click **"Use this start"**. The pilot is evaluated
    again with this start (penalties, speed and loss of height are recalculated
    by the usual rules), the IGC copy gets the new 1 m start cylinder and the
-   Excel report is rewritten at once - **close the report in Excel before**,
+   Excel report is rewritten at once - **close the report in Excel before** (the "Open report" button opens it again afterwards),
    otherwise Windows blocks the file. The row is marked yellow with the remark
    "START CHOSEN MANUALLY" (please document the decision).
 4. "Reset to automatic result" undoes the choice for the selected pilot.

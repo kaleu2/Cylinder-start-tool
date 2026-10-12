@@ -59,7 +59,8 @@ Tage mit Linien- oder Sektorstart werden von diesem Tool **nicht** bearbeitet
    - Optional: **Baro kalibrieren** auf die Platzhöhe (siehe unten).
 6. Auf **"Auswertung starten"** klicken. Das Protokoll zeigt den Fortschritt;
    danach liegen im Zielordner die IGC-Kopien und der Excel-Report.
-7. **Report lesen** (`Zylinderabflug_Report.xlsx`), bevor es weitergeht. Jeder
+7. **Report lesen** (`Zylinderabflug_Report.xlsx`), bevor es weitergeht - der
+   Button **"Report öffnen"** unten öffnet ihn direkt in Excel. Jeder
    Pilot hat eine Zeile, eingefärbt nach der schwersten Anmerkung:
    **rot** = Strafe oder ungültig, **gelb** = bitte manuell prüfen,
    **grau** = nur Hinweis (z. B. normale Außenlandung). Zuerst alle roten und
@@ -185,7 +186,7 @@ Piloten anders:
    wird mit diesem Start neu ausgewertet (Strafen, Geschwindigkeit und
    Höhenverlust nach den üblichen Regeln), die IGC-Kopie erhält den neuen
    1-m-Startzylinder und der Excel-Report wird sofort neu geschrieben -
-   **vorher den Report in Excel schließen**, sonst sperrt Windows die Datei.
+   **vorher den Report in Excel schließen**, sonst sperrt Windows die Datei (danach öffnet "Report öffnen" ihn wieder).
    Die Zeile wird gelb markiert mit dem Hinweis "START MANUELL GEWÄHLT"
    (Entscheidung bitte dokumentieren).
 4. "Auf automatische Wertung zurücksetzen" macht die Wahl für den gewählten

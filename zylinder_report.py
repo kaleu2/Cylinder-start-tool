@@ -56,22 +56,40 @@ def write_report_xlsx(results: list, out_path: str, task_summary: dict):
     ws["A1"] = tr("Zylinderabflug-Auswertung (Annex A 7.4.4)")
     ws["A1"].font = Font(name="Arial", size=14, bold=True)
 
-    row = 3
-    for label, value in task_summary.items():
-        ws.cell(row=row, column=1, value=label).font = Font(name="Arial", bold=True)
-        ws.cell(row=row, column=2, value=value).font = Font(name="Arial")
+    # Kopfbereich: Zeile 2 = erster Eintrag (Wertungstag); Zeile 3 = alle weiteren
+    # Eintraege nebeneinander (Spalte A Bezeichnung, B Wert, C Bezeichnung, D Wert, ...)
+    label_font = Font(name="Arial", bold=True)
+    value_font = Font(name="Arial")
+    items = list(task_summary.items())
+    row = 2
+    if items:
+        label, value = items[0]
+        ws.cell(row=row, column=1, value=label).font = label_font
+        ws.cell(row=row, column=2, value=value).font = value_font
         row += 1
-    row += 1
+    for k, (label, value) in enumerate(items[1:]):
+        c = ws.cell(row=row, column=1 + 2 * k, value=label)
+        c.font = label_font
+        c.alignment = Alignment(wrap_text=True, vertical="top")
+        c = ws.cell(row=row, column=2 + 2 * k, value=value)
+        c.font = value_font
+        c.alignment = Alignment(wrap_text=True, vertical="top")
+    if len(items) > 1:
+        ws.row_dimensions[row].height = 30
+        row += 1
 
     # Legende
     ws.cell(row=row, column=1, value=tr("Legende Zeilenfarbe:")).font = Font(name="Arial", bold=True)
-    for col, (sev, txt) in enumerate(
+    # jede Legendenfarbe ueber mehrere Spalten verbunden, damit der Text lesbar bleibt
+    for (c1, c2), (sev, txt) in zip(
+            [(2, 3), (4, 5), (6, 10)],
             [(SEV_PENALTY, tr("rot = Strafe / ungültig")), (SEV_WARN, tr("gelb = prüfen")),
-             (SEV_INFO, tr("grau = nur Hinweis (z. B. Außenlandung, ignorierter PEV)"))], start=2):
-        c = ws.cell(row=row, column=col, value=txt)
+             (SEV_INFO, tr("grau = nur Hinweis (z. B. Außenlandung, ignorierter PEV)"))]):
+        ws.merge_cells(start_row=row, start_column=c1, end_row=row, end_column=c2)
+        c = ws.cell(row=row, column=c1, value=txt)
         c.fill = FILL_BY_SEV[sev]
         c.font = Font(name="Arial")
-    row += 2
+    row += 1
 
     headers = [tr(h) for h in [
         "Pilot", "Kennung", "Fluggerät", "Datum (Datei)", "Startmethode", "Startzeit (UTC)",
@@ -126,7 +144,7 @@ def write_report_xlsx(results: list, out_path: str, task_summary: dict):
             ws.cell(row=row, column=4).font = Font(name="Arial", bold=True, color="C00000")
         row += 1
 
-    widths = [18, 8, 10, 12, 11, 11, 14, 11, 11, 14, 8, 13, 14, 11, 10, 10, 12, 11, 24, 80]
+    widths = [20, 10, 10, 12, 11, 11, 14, 11, 11, 14, 8, 13, 14, 11, 10, 10, 12, 11, 24, 80]
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.row_dimensions[header_row].height = 48

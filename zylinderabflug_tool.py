@@ -17,6 +17,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import traceback
 from dataclasses import asdict
@@ -524,6 +525,10 @@ class App(tk.Tk):
                                      command=self._open_choice,
                                      state="normal" if self._run_data else "disabled")
         self.btn_choose.pack(side="right", padx=4)
+        self.btn_report = ttk.Button(frm_actions, text=tr("Report öffnen"),
+                                     command=self._open_report,
+                                     state="normal" if self._run_data else "disabled")
+        self.btn_report.pack(side="right", padx=4)
 
         # --- Scrollbarer Hauptbereich (Scrollbalken rechts, Mausrad) ---
         mid = ttk.Frame(self)
@@ -1178,6 +1183,7 @@ class App(tk.Tk):
                 "Der Report konnte nicht geschrieben werden (ist die Datei in Excel geöffnet?):\n{e}", e=e))
             return
         self.btn_choose.config(state="normal" if results else "disabled")
+        self.btn_report.config(state="normal")
         self._log("\n" + tr("Fertig. Report: {p}", p=report_path))
         if results:
             self._log(tr("Hinweis: Über \"Andere Abflüge wählen...\" lassen sich einzelne Starts "
@@ -1186,26 +1192,37 @@ class App(tk.Tk):
 
     # ------------------------------------------------------------------
     def _build_task_summary(self, task):
+        """Kopfzeilen des Reports: Wertungstag (Zeile 2), dann nebeneinander in Zeile 3."""
         return {
-            tr("Start-Zylinder"): tr("{lat:.5f}, {lon:.5f}  (Radius {r:.0f} m)",
-                                     lat=task.start_lat, lon=task.start_lon, r=task.start_radius_m),
             tr("Wertungstag"): task.date_str,
             tr("Toröffnung (Ortszeit)"): task.gate_open_local,
-            tr("Max. Groundspeed"): f"{task.max_groundspeed_kmh:.0f} km/h",
-            tr("Max. Loss of Height"): f"{task.max_loss_of_height_m:.0f} m",
+            tr("Max. GS"): f"{task.max_groundspeed_kmh:.0f} km/h",
+            tr("Max. LoH"): f"{task.max_loss_of_height_m:.0f} m",
             tr("PEV-Mindestintervall"): f"{task.min_pev_interval_s // 60} min",
-            tr("Loss-of-Height-Strafe"): tr("1 Punkt je {m:g} m über Limit (Deckelung auf Speed-/15-%-Punkte erfolgt in SeeYou)",
-                                            m=task.loh_m_per_point),
-            tr("Baro-Kalibrierung"): (tr("auf Platzhöhe {h:.0f} m", h=task.ref_elevation_m)
-                                      if task.ref_elevation_m is not None
-                                      else tr("aus (Druckhöhe unkalibriert)")),
         }
 
     def _write_report(self):
         rd = self._run_data
         report_path = os.path.join(rd["dst"], tr("Zylinderabflug_Report.xlsx"))
         write_report_xlsx(list(rd["results"].values()), report_path, rd["summary"])
+        rd["report_path"] = report_path
         return report_path
+
+    def _open_report(self):
+        """Report mit dem Standardprogramm (Excel) oeffnen."""
+        path = (self._run_data or {}).get("report_path")
+        if not path or not os.path.isfile(path):
+            messagebox.showwarning(tr("Hinweis"), tr("Es gibt noch keinen Report - bitte zuerst die Auswertung starten."))
+            return
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(path)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", path])
+            else:
+                subprocess.Popen(["xdg-open", path])
+        except Exception as e:
+            messagebox.showerror(tr("Fehler"), tr("Der Report konnte nicht geöffnet werden:\n{e}", e=e))
 
     def _open_choice(self):
         if not self._run_data:
