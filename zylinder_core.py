@@ -414,6 +414,7 @@ class StartResult:
     penalty_minutes: float = 0.0
     valid: bool = True
     radius_m: float = 0.0
+    manual: bool = False            # vom Wettbewerbsleiter manuell gewaehlt
 
     @property
     def edge_distance_m(self) -> float:
@@ -442,9 +443,26 @@ def _cluster_pevs(pev_times: List[int], cluster_s: int) -> Tuple[List[int], int]
     return clustered, merged
 
 
+def _find_exits(flight: IGCFlight, task: TaskParams, tester: _CircleTester,
+                gate_s: int) -> List[_Cand]:
+    """Alle Ausfluege aus dem Startzylinder nach Toroeffnung (letzter Fix innen -> erster aussen)."""
+    out: List[_Cand] = []
+    prev_in = None
+    for i in range(len(flight.fixes)):
+        cur_in = tester.inside(0, i)
+        if prev_in is True and not cur_in and flight.fixes[i].time_s >= gate_s:
+            fx = flight.fixes[i]
+            d = vincenty_distance_m(task.start_lat, task.start_lon, fx.lat, fx.lon)
+            out.append(_Cand('Ausflug', fx.time_s, i, d))
+        prev_in = cur_in
+    return out
+
+
 def _find_start(flight: IGCFlight, task: TaskParams, tester: _CircleTester,
-                times: List[int]):
-    """Annex A 7.4.4: gewerteter Startpunkt. Gibt (StartResult, FinishResult) zurueck."""
+                times: List[int], forced=None):
+    """Annex A 7.4.4: gewerteter Startpunkt. Gibt (StartResult, FinishResult) zurueck.
+    forced = (art, zeit_s) erzwingt einen vom Wettbewerbsleiter gewaehlten Start
+    ('PEV' oder 'Ausflug'); die uebrigen Regeln (Intervall, Strafen) gelten weiter."""
     notes: List[Note] = []
     gate_s = _local_to_utc_seconds(task.gate_open_local, task.tz_offset_h)
     R = task.start_radius_m
@@ -490,17 +508,7 @@ def _find_start(flight: IGCFlight, task: TaskParams, tester: _CircleTester,
 
     # ---- Ausflug-Kandidaten (nur relevant, wenn kein gueltiger PEV) ----
     def exit_cands() -> List[_Cand]:
-        out = []
-        n = len(flight.fixes)
-        prev_in = None
-        for i in range(n):
-            cur_in = tester.inside(0, i)
-            if prev_in is True and not cur_in and flight.fixes[i].time_s >= gate_s:
-                fx = flight.fixes[i]
-                d = vincenty_distance_m(task.start_lat, task.start_lon, fx.lat, fx.lon)
-                out.append(_Cand('Ausflug', fx.time_s, i, d))
-            prev_in = cur_in
-        return out
+        return _find_exits(flight, task, tester, gate_s)
 
     def best_of(cands: List[_Cand]) -> Tuple[_Cand, FinishResult]:
         """Spaetester Kandidat mit dem groessten Aufgabenfortschritt."""
@@ -516,6 +524,51 @@ def _find_start(flight: IGCFlight, task: TaskParams, tester: _CircleTester,
 
     penalty_points = 0.0
     penalty_minutes = 0.0
+
+    if forced is not None:
+        f_kind, f_time = forced
+        auto_sr, _ = _find_start(flight, task, tester, times)
+        if f_kind == 'PEV':
+            i = max(bisect.bisect_right(times, f_time) - 1, 0)
+            fx = flight.fixes[i]
+            d = vincenty_distance_m(task.start_lat, task.start_lon, fx.lat, fx.lon)
+            cand = _Cand('PEV', f_time, i, d)
+            fin = _trace_task(flight, task, tester, times, f_time)
+            prev = [c for c in pev_cands
+                    if c.time_s < f_time and f_time - c.time_s > task.pev_cluster_s]
+            if prev and f_time - prev[-1].time_s < task.min_pev_interval_s:
+                add_min = task.no_pev_penalty_first_min
+                penalty_minutes += add_min
+                notes.append(Note(tr(
+                    "PEV-Intervall zwischen {a} und {b} UTC kürzer als Mindestintervall "
+                    "({m} min) -> +{add:.0f} Minuten Strafzeit (vorherige Fälle prüfen: bei "
+                    "Wiederholung an einem weiteren Wertungstag +{sub:.0f} Minuten)",
+                    a=seconds_to_hms(prev[-1].time_s), b=seconds_to_hms(f_time),
+                    m=task.min_pev_interval_s // 60, add=add_min,
+                    sub=task.no_pev_penalty_subsequent_min), SEV_PEV_INTERVAL))
+            if d > R:
+                penalty_points += round_half_up(task.tolerance_penalty_pts)
+        else:
+            match = [c for c in exit_cands() if c.time_s == f_time]
+            if not match:
+                raise ValueError(f"Kein Ausflug um {seconds_to_hms(f_time)} UTC gefunden")
+            cand = match[0]
+            fin = _trace_task(flight, task, tester, times, cand.time_s)
+            fx = flight.fixes[cand.fix_idx]
+            penalty_minutes += task.no_pev_penalty_first_min
+            notes.append(Note(tr(
+                "Ausflug aus dem Zylinder um {t} UTC als Start gewählt -> "
+                "+{m:.0f} Minuten Strafzeit", t=seconds_to_hms(cand.time_s),
+                m=task.no_pev_penalty_first_min), SEV_PENALTY))
+        auto_txt = (tr("{m} um {t} UTC", m=method_label(auto_sr.method), t=seconds_to_hms(auto_sr.time_s))
+                    if auto_sr.valid else tr("kein gültiger Start"))
+        notes.append(Note(tr(
+            "START MANUELL GEWÄHLT: {m} um {t} UTC (automatische Wertung des Tools: {auto}) "
+            "-> bitte Entscheidung dokumentieren",
+            m=method_label(cand.kind), t=seconds_to_hms(cand.time_s), auto=auto_txt), SEV_WARN))
+        sr = StartResult(cand.kind, cand.time_s, fx.lat, fx.lon, fx.baro_alt, cand.dist_m,
+                         notes, penalty_points, penalty_minutes, manual=True)
+        return sr, fin
 
     if pev_cands:
         cand, fin = best_of(pev_cands)
@@ -582,6 +635,138 @@ def evaluate_start(flight: IGCFlight, task: TaskParams) -> StartResult:
     tester = _CircleTester(flight, task)
     sr, _ = _find_start(flight, task, tester, times)
     return sr
+
+
+@dataclass
+class StartOption:
+    """Ein moeglicher Startpunkt (PEV im Zylinder oder Ausflug) fuer die manuelle Auswahl."""
+    kind: str                 # 'PEV' | 'Ausflug'
+    time_s: int
+    dist_m: float             # Distanz zum Zylindermittelpunkt
+    edge_m: float             # Abstand zum Zylinderrand (negativ = innerhalb)
+    progress: int             # erreichte Aufgabenpunkte ab diesem Start
+    n_zones: int
+    credited: bool            # vom Tool automatisch gewertet
+    penalty_min: float        # Strafzeit bei Wahl dieses Starts
+    speed_kmh: Optional[float]
+    speed_valid: bool
+    reasons: List[str] = field(default_factory=list)   # Info: warum er eigentlich nicht zaehlt
+
+    @property
+    def key(self):
+        return (self.kind, self.time_s)
+
+
+def list_start_options(flight: IGCFlight, task: TaskParams) -> List[StartOption]:
+    """Alle PEVs im Startzylinder (auch vor Toroeffnung und innerhalb der 30-s-Gruppe)
+    plus den Ausflug aus dem Zylinder nach dem letzten gueltigen PEV - jeweils mit
+    Hinweistext, warum der Start eigentlich nicht zaehlt. PEVs ausserhalb des
+    Zylinders werden nicht angeboten (sie sind nach Annex A ohne Wirkung)."""
+    if not flight.fixes:
+        return []
+    times = [fx.time_s for fx in flight.fixes]
+    tester = _CircleTester(flight, task)
+    auto, _ = _find_start(flight, task, tester, times)
+    gate_s = _local_to_utc_seconds(task.gate_open_local, task.tz_offset_h)
+    R = task.start_radius_m
+    tol = task.tolerance_m
+    min_iv = task.min_pev_interval_s
+    n_zones = len(task.zones)
+
+    inside = []   # (t, fix_idx, d)
+    for t in flight.pev_times_s:
+        i = max(bisect.bisect_right(times, t) - 1, 0)
+        fx = flight.fixes[i]
+        d = vincenty_distance_m(task.start_lat, task.start_lon, fx.lat, fx.lon)
+        if d <= R + tol:
+            inside.append((t, i, d))
+
+    # gueltige PEVs (nach Toroeffnung) und 30-s-Gruppen
+    leaders: List[int] = []
+    leader_of = {}
+    for t, i, d in inside:
+        if t < gate_s:
+            continue
+        if leaders and t - leaders[-1] <= task.pev_cluster_s:
+            leader_of[t] = leaders[-1]
+            continue
+        leaders.append(t)
+    last_leader = leaders[-1] if leaders else None
+
+    def make(kind, t, i, d, reasons, penalty_min):
+        fin = _trace_task(flight, task, tester, times, t)
+        fx = flight.fixes[i]
+        probe = StartResult(kind, t, fx.lat, fx.lon, fx.baro_alt, d)
+        gs = compute_start_groundspeed(flight, probe)
+        v = gs[0] if gs else None
+        pts, snotes, valid = evaluate_speed_penalty(v, task)
+        if v is not None and not valid:
+            reasons.append(tr("Groundspeed {v:.1f} km/h über dem Limit + 50 km/h -> kein gültiger Start",
+                              v=v))
+        elif v is not None and pts > 0:
+            reasons.append(tr("Groundspeed {v:.1f} km/h über dem Limit -> {p} Strafpunkte",
+                              v=v, p=round_half_up(pts)))
+        credited = (auto.valid and auto.method == kind and auto.time_s == t)
+        return StartOption(kind, t, d, d - R, fin.reached, n_zones, credited,
+                           penalty_min, v, valid, reasons)
+
+    options: List[StartOption] = []
+    for t, i, d in inside:
+        reasons: List[str] = []
+        pen = 0.0
+        if t < gate_s:
+            reasons.append(tr("PEV vor Toröffnung ({g} UTC) - zählt nicht",
+                              g=seconds_to_hms(gate_s)))
+        elif t in leader_of:
+            reasons.append(tr("PEV innerhalb von {s} s nach dem PEV um {a} UTC - zählt mit diesem "
+                              "als ein PEV (Start = erster PEV der Gruppe)",
+                              s=task.pev_cluster_s, a=seconds_to_hms(leader_of[t])))
+        else:
+            k = leaders.index(t)
+            if k >= 1 and t - leaders[k - 1] < min_iv:
+                pen = task.no_pev_penalty_first_min
+                reasons.append(tr("Abstand zum vorherigen PEV ({a} UTC) nur {m:.1f} min < "
+                                  "{mi} min -> +{p:.0f} Minuten Strafzeit",
+                                  a=seconds_to_hms(leaders[k - 1]), m=(t - leaders[k - 1]) / 60.0,
+                                  mi=min_iv // 60, p=pen))
+            if t != last_leader:
+                reasons.append(tr("nicht der letzte PEV im Zylinder (letzter: {b} UTC) - "
+                                  "nach Annex A zählt der letzte gültige PEV",
+                                  b=seconds_to_hms(last_leader)))
+        if d > R:
+            reasons.append(tr("PEV {d:.0f} m außerhalb des Zylinders (innerhalb Toleranz)", d=d - R))
+        opt = make('PEV', t, i, d, reasons, pen)
+        if opt.credited:
+            opt.reasons.insert(0, tr("Vom Tool gewerteter Start"))
+        options.append(opt)
+
+    # Ausfluege: nach dem letzten gueltigen PEV der erste; ohne gueltigen PEV alle
+    exits = _find_exits(flight, task, tester, gate_s)
+    if last_leader is not None:
+        later = [c for c in exits if c.time_s > last_leader]
+        exits = later[:1]
+    for c in exits:
+        if last_leader is not None:
+            reasons = [tr("Ausflug aus dem Zylinder nach dem letzten gültigen PEV ({b} UTC): zählt "
+                          "nur, wenn kein gültiger PEV vorliegt; +{p:.0f} Minuten Strafzeit",
+                          b=seconds_to_hms(last_leader), p=task.no_pev_penalty_first_min)]
+        else:
+            reasons = [tr("Kein gültiger PEV: Ausflug aus dem Zylinder = Abflugort; "
+                          "+{p:.0f} Minuten Strafzeit", p=task.no_pev_penalty_first_min)]
+        opt = make('Ausflug', c.time_s, c.fix_idx, c.dist_m, reasons, task.no_pev_penalty_first_min)
+        if opt.credited:
+            opt.reasons.insert(0, tr("Vom Tool gewerteter Start"))
+        options.append(opt)
+
+    # weniger Aufgabenfortschritt als der gewertete Start
+    cred = next((o for o in options if o.credited), None)
+    if cred is not None and n_zones:
+        for o in options:
+            if not o.credited and o.progress < cred.progress:
+                o.reasons.append(tr("weniger Aufgabenfortschritt ({a}/{n} Punkte) als der gewertete "
+                                    "Start ({b}/{n})", a=o.progress, b=cred.progress, n=n_zones))
+    options.sort(key=lambda o: o.time_s)
+    return options
 
 
 def compute_start_groundspeed(flight: IGCFlight, start: StartResult):
@@ -688,7 +873,7 @@ class PilotResult:
         return [n.text for n in self.notes]
 
 
-def evaluate_pilot(flight: IGCFlight, task: TaskParams) -> PilotResult:
+def evaluate_pilot(flight: IGCFlight, task: TaskParams, forced=None) -> PilotResult:
     notes: List[Note] = []
     date_mismatch = False
     if task.date_str and flight.date_str and flight.date_str != task.date_str:
@@ -700,7 +885,7 @@ def evaluate_pilot(flight: IGCFlight, task: TaskParams) -> PilotResult:
 
     times = [fx.time_s for fx in flight.fixes]
     tester = _CircleTester(flight, task)
-    start, fin = _find_start(flight, task, tester, times)
+    start, fin = _find_start(flight, task, tester, times, forced)
     start.radius_m = task.start_radius_m
     notes.extend(start.notes)
 

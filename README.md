@@ -55,7 +55,7 @@ itself) - only use it for days with a cylinder start.
      groundspeed and maximum loss of height from there.
    - **Max. groundspeed / max. loss of height / time zone**: must match the
      task sheet. The Annex A values are preset; change them for national rules.
-   - Optionally: **calibrate baro** to the field elevation (see below).
+   - Optionally: **adjust baro** to the airfield elevation (see below).
 6. Click **"Start evaluation"**. The log shows the progress; when it is done,
    the target folder contains the IGC copies and the Excel report.
 7. **Read the report** (`Cylinder_Start_Report.xlsx`) before going on. Every
@@ -63,13 +63,17 @@ itself) - only use it for days with a cylinder start.
    **red** = penalty or invalid, **yellow** = please check manually,
    **grey** = information only (e.g. normal outlanding). Look at all red and
    yellow rows first.
-8. **Score in SeeYou Competition:** set the day's task with
+8. *(Optional)* **Change a start manually** - if the contest management
+   decides that a different PEV (or the exit from the cylinder) shall count
+   for a pilot, click **"Choose other starts..."** (see
+   [Choosing a different start](#choosing-a-different-start-manually)).
+9. **Score in SeeYou Competition:** set the day's task with
    "Use task from IGC file" (choose one of the copies in the target folder)
    and load the flights from the target folder. The start of every pilot is
    now the 1 m cylinder at his credited start fix, so SeeYou calculates the
    start time and altitude correctly. (Menu names can differ slightly between
    SeeYou versions.)
-9. **Enter the penalties manually in SeeYou**: the report contains the time
+10. **Enter the penalties manually in SeeYou**: the report contains the time
    penalty (+5 min for an exit start or a short PEV interval) and the points
    for excess groundspeed and loss of height per pilot.
 
@@ -143,17 +147,46 @@ folder when running from source (options 2 and 3).
 - **Daily parameters** (max. groundspeed, max. loss of height, minimum PEV
   interval, etc.): Annex A default values are preset and can be overwritten
   directly for national contests with different rules.
-- **Baro calibration** (optional): tick "Calibrate baro to reference
-  elevation" and enter the field elevation (m MSL). The stationary phase at
-  the start of the file is then set to this elevation. If a file starts in the
-  air it stays uncalibrated (remark in the report). The loss of height does
-  not change through the calibration, only the reported start/finish
+- **Baro adjustment** (optional): tick "Adjust baro to the airfield
+  elevation" and enter the airfield elevation (m MSL). The stationary phase at
+  the start of the file is then adjusted to this elevation. If a file starts
+  in the air it stays unadjusted (remark in the report). The loss of height
+  does not change through this adjustment, only the reported start/finish
   altitudes. Altitudes in the report are always barometric.
 - **Save/Load parameters** saves a complete data set as JSON, e.g. to reuse
   the task of a previous day.
 - **If the window is larger than your screen**: use the scroll bar on the right
   or the mouse wheel. The buttons "Load/Save parameters" and "Start
   evaluation" at the bottom are always visible.
+
+## Choosing a different start manually
+
+The automatic evaluation applies Annex A 7.4.4 (last valid PEV in the
+cylinder, otherwise the exit). If the contest management decides otherwise
+for a pilot:
+
+1. Run the evaluation as usual. Afterwards the button **"Choose other
+   starts..."** (bottom right) becomes active - the window is **not** opened
+   automatically.
+2. Select the pilot in the upper list. The lower list shows **all PEVs inside
+   the start cylinder** (also those before gate opening or within 30 s of
+   another PEV) and the **exit from the cylinder after the last valid PEV**.
+   For each start you see the distance to the cylinder edge, the task points
+   reached after it, the groundspeed and the time penalty. The text field
+   below explains **why a start should not count** (e.g. "not the last PEV",
+   "before gate opening", "less than 10 min after the previous PEV",
+   "groundspeed over the limit").
+3. Select the start and click **"Use this start"**. The pilot is evaluated
+   again with this start (penalties, speed and loss of height are recalculated
+   by the usual rules), the IGC copy gets the new 1 m start cylinder and the
+   Excel report is rewritten at once - **close the report in Excel before**,
+   otherwise Windows blocks the file. The row is marked yellow with the remark
+   "START CHOSEN MANUALLY" (please document the decision).
+4. "Reset to automatic result" undoes the choice for the selected pilot.
+
+PEVs **outside** the cylinder are not offered (they have no effect according
+to Annex A). The manual choices are not stored: after a new evaluation run
+all pilots are back to the automatic result.
 
 ## Language
 
@@ -164,7 +197,7 @@ Excel report is written in the selected language.
 ## Remembered settings
 
 On closing, the tool stores all values (speeds, loss of height, field
-elevation + calibration checkbox, folders, start cylinder, task points, ...)
+airfield elevation + baro checkbox, folders, start cylinder, task points, ...)
 and, for each selection dialog, the last folder used - also after a restart.
 The contest day is not remembered (at program start: today's date) and
 neither is the gate opening (default 03:00:00). The CUP file is stored in the

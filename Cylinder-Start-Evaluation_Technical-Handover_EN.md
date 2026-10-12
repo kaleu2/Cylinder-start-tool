@@ -216,3 +216,23 @@ PySoar does that anyway.
   be derived from a single day's files.
 - User interface and Excel report exist in German and English (`i18n.py`,
   `en_dict.py`); the German text is also the translation key.
+
+## 10. Manual start choice by the contest management
+
+The reference implementation lets the user override the automatic start per
+pilot (`zylinder_core.list_start_options()`, `evaluate_pilot(..., forced=(kind, time_s))`):
+
+- **Options offered:** every PEV *inside* the start cylinder (including PEVs
+  before gate opening and PEVs merged by the 30-second rule) plus the first
+  exit from the cylinder after the last valid PEV (without a valid PEV: all
+  exits after gate opening). PEVs outside the cylinder are not offered.
+- **Information per option:** distance to the cylinder edge, task progress
+  after this start, start groundspeed, time penalty, and text reasons why the
+  start should not count (before gate opening, merged in a 30-second group,
+  not the last valid PEV, interval to the previous PEV below the minimum,
+  less task progress than the credited start, groundspeed over the limit).
+- **Evaluation with a forced start:** all other rules still apply (interval
+  penalty against the previous valid PEV, +5 minutes for an exit, speed and
+  loss-of-height penalties). The result carries the remark "START CHOSEN
+  MANUALLY" (yellow) so the decision can be documented.
+

@@ -26,6 +26,7 @@ from tkinter import ttk, filedialog, messagebox
 
 from zylinder_core import (
     TaskParams, Zone, parse_igc, evaluate_pilot, write_output_igc, seconds_to_hms, method_label,
+    list_start_options,
 )
 from i18n import tr, set_lang, get_lang, LANGUAGES
 from zylinder_report import write_report_xlsx
@@ -236,10 +237,172 @@ class CupPickDialog(tk.Toplevel):
         self.destroy()
 
 
+class StartChoiceDialog(tk.Toplevel):
+    """Manuelle Auswahl eines anderen Starts je Pilot (nach der Auswertung).
+    Zeigt alle PEVs im Startzylinder plus den Ausflug nach dem letzten gueltigen PEV,
+    jeweils mit Hinweistext, warum der Start eigentlich nicht zaehlt."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.app = app
+        self.title(tr("Andere Abflüge wählen"))
+        self.transient(app)
+        w = min(960, app.winfo_screenwidth() - 40)
+        h = min(660, app.winfo_screenheight() - 90)
+        self.geometry(f"{w}x{h}")
+        self.minsize(min(700, w), min(480, h))
+        self._opt_cache = {}          # Dateiname -> Liste StartOption (Cache)
+        self._cur_file = None
+        self._opt_rows = {}         # tree-iid -> StartOption
+
+        ttk.Label(self, wraplength=w - 30, justify="left", text=tr(
+            "Pilot wählen, dann den gewünschten Start markieren und \"Diesen Start übernehmen\" "
+            "klicken. Die IGC-Kopie und der Report werden sofort neu geschrieben. Ein manuell "
+            "gewählter Start wird im Report gelb markiert.")).pack(fill="x", padx=8, pady=(8, 4))
+
+        # --- Piloten ---
+        frm_p = ttk.LabelFrame(self, text=tr("Piloten"))
+        frm_p.pack(fill="both", expand=True, padx=8, pady=4)
+        cols = ("file", "pilot", "start", "method", "state")
+        self.tree_p = ttk.Treeview(frm_p, columns=cols, show="headings", height=7, selectmode="browse")
+        for c, head, wd in (("file", tr("Datei"), 170), ("pilot", tr("Pilot"), 170),
+                            ("start", tr("Start (UTC)"), 90), ("method", tr("Methode"), 90),
+                            ("state", tr("Wertung"), 150)):
+            self.tree_p.heading(c, text=head)
+            self.tree_p.column(c, width=wd, anchor="w")
+        sb = ttk.Scrollbar(frm_p, orient="vertical", command=self.tree_p.yview)
+        self.tree_p.configure(yscrollcommand=sb.set)
+        self.tree_p.pack(side="left", fill="both", expand=True, padx=(6, 0), pady=6)
+        sb.pack(side="left", fill="y", pady=6, padx=(0, 6))
+        self.tree_p.bind("<<TreeviewSelect>>", self._on_pilot)
+
+        # --- Optionen ---
+        frm_o = ttk.LabelFrame(self, text=tr("Mögliche Starts des gewählten Piloten"))
+        frm_o.pack(fill="both", expand=True, padx=8, pady=4)
+        cols = ("time", "kind", "edge", "prog", "speed", "pen", "state")
+        self.tree_o = ttk.Treeview(frm_o, columns=cols, show="headings", height=6, selectmode="browse")
+        for c, head, wd in (("time", tr("Zeit (UTC)"), 90), ("kind", tr("Art"), 80),
+                            ("edge", tr("Abstand zum Rand (m)"), 140), ("prog", tr("Aufgabenpunkte"), 110),
+                            ("speed", tr("Groundspeed (km/h)"), 130), ("pen", tr("Strafzeit (min)"), 130),
+                            ("state", tr("Wertung"), 160)):
+            self.tree_o.heading(c, text=head)
+            self.tree_o.column(c, width=wd, anchor="center")
+        sb2 = ttk.Scrollbar(frm_o, orient="vertical", command=self.tree_o.yview)
+        self.tree_o.configure(yscrollcommand=sb2.set)
+        self.tree_o.pack(side="top", fill="both", expand=True, padx=(6, 0), pady=(6, 2))
+        self.tree_o.tag_configure("credited", background="#E2EFDA")
+        self.tree_o.tag_configure("manual", background="#FFF2CC")
+        self.tree_o.bind("<<TreeviewSelect>>", self._on_option)
+        self.info = tk.Text(frm_o, height=5, wrap="word", state="disabled", background="#F5F5F5",
+                            font="TkDefaultFont")
+        self.info.pack(side="top", fill="x", padx=6, pady=(2, 6))
+
+        # --- Knoepfe ---
+        frm_b = ttk.Frame(self)
+        frm_b.pack(fill="x", padx=8, pady=(4, 8))
+        self.btn_apply = ttk.Button(frm_b, text=tr("Diesen Start übernehmen"), command=self._apply, state="disabled")
+        self.btn_apply.pack(side="left", padx=4)
+        self.btn_reset = ttk.Button(frm_b, text=tr("Auf automatische Wertung zurücksetzen"),
+                                    command=self._reset, state="disabled")
+        self.btn_reset.pack(side="left", padx=4)
+        ttk.Button(frm_b, text=tr("Schließen"), command=self.destroy).pack(side="right", padx=4)
+
+        self._fill_pilots()
+
+    # ------------------------------------------------------------------
+    def _fill_pilots(self, keep=None):
+        self.tree_p.delete(*self.tree_p.get_children())
+        for fname, res in self.app._run_data["results"].items():
+            manual = res.start.manual
+            self.tree_p.insert("", "end", iid=fname, values=(
+                fname, res.pilot or tr("(ohne Namen)"),
+                seconds_to_hms(res.start.time_s) if res.start.valid else "-",
+                method_label(res.start.method),
+                tr("manuell gewählt") if manual else tr("automatisch")),
+                tags=("manual",) if manual else ())
+        self.tree_p.tag_configure("manual", background="#FFF2CC")
+        if keep and self.tree_p.exists(keep):
+            self.tree_p.selection_set(keep)
+
+    def _on_pilot(self, event=None):
+        sel = self.tree_p.selection()
+        if not sel:
+            return
+        fname = sel[0]
+        self._cur_file = fname
+        if fname not in self._opt_cache:
+            self.config(cursor="watch")
+            self.update_idletasks()
+            try:
+                rd = self.app._run_data
+                self._opt_cache[fname] = list_start_options(rd["flights"][fname], rd["task"])
+            finally:
+                self.config(cursor="")
+        self._fill_options()
+
+    def _fill_options(self):
+        self.tree_o.delete(*self.tree_o.get_children())
+        self._opt_rows = {}
+        fname = self._cur_file
+        res = self.app._run_data["results"][fname]
+        for n, o in enumerate(self._opt_cache.get(fname, [])):
+            is_now = (res.start.valid and res.start.method == o.kind and res.start.time_s == o.time_s)
+            if is_now and res.start.manual:
+                state, tag = tr("manuell gewählt"), "manual"
+            elif o.credited:
+                state, tag = tr("automatisch gewertet"), "credited"
+            else:
+                state, tag = "", ""
+            if is_now and not res.start.manual and not o.credited:
+                state = tr("gewertet")
+            iid = str(n)
+            self._opt_rows[iid] = o
+            self.tree_o.insert("", "end", iid=iid, tags=(tag,) if tag else (), values=(
+                seconds_to_hms(o.time_s), method_label(o.kind), f"{o.edge_m:+.0f}",
+                f"{o.progress}/{o.n_zones}" if o.n_zones else "-",
+                f"{o.speed_kmh:.1f}" if o.speed_kmh is not None else "-",
+                f"{o.penalty_min:.0f}" if o.penalty_min else "0", state))
+        self._set_info("")
+        self.btn_apply.config(state="disabled")
+        self.btn_reset.config(state="normal" if res.start.manual else "disabled")
+
+    def _on_option(self, event=None):
+        sel = self.tree_o.selection()
+        if not sel:
+            self.btn_apply.config(state="disabled")
+            return
+        o = self._opt_rows[sel[0]]
+        self._set_info("\n".join("• " + r for r in o.reasons) if o.reasons else
+                       tr("Keine Auffälligkeiten."))
+        self.btn_apply.config(state="normal")
+
+    def _set_info(self, text):
+        self.info.config(state="normal")
+        self.info.delete("1.0", "end")
+        self.info.insert("1.0", text)
+        self.info.config(state="disabled")
+
+    def _apply(self):
+        sel = self.tree_o.selection()
+        if not sel or not self._cur_file:
+            return
+        o = self._opt_rows[sel[0]]
+        if self.app._apply_start_choice(self._cur_file, o.key):
+            self._fill_pilots(keep=self._cur_file)
+            self._fill_options()
+
+    def _reset(self):
+        if self._cur_file and self.app._apply_start_choice(self._cur_file, None):
+            self._fill_pilots(keep=self._cur_file)
+            self._fill_options()
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.zones = []
+        self._run_data = None       # Ergebnisse des letzten Laufs (fuer manuelle Startwahl)
+        self._choice_dlg = None
         self.settings = load_settings()
         set_lang(self.settings.get("lang") or _default_language())
         self.title(tr("Zylinderabflug-Auswertetool (Annex A 7.4.4)"))
@@ -357,6 +520,10 @@ class App(tk.Tk):
         ttk.Button(frm_actions, text=tr("Parameter laden..."), command=self._load_params).pack(side="left", padx=4)
         ttk.Button(frm_actions, text=tr("Parameter speichern..."), command=self._save_params).pack(side="left", padx=4)
         ttk.Button(frm_actions, text=tr("Auswertung starten"), command=self._run).pack(side="right", padx=4)
+        self.btn_choose = ttk.Button(frm_actions, text=tr("Andere Abflüge wählen..."),
+                                     command=self._open_choice,
+                                     state="normal" if self._run_data else "disabled")
+        self.btn_choose.pack(side="right", padx=4)
 
         # --- Scrollbarer Hauptbereich (Scrollbalken rechts, Mausrad) ---
         mid = ttk.Frame(self)
@@ -971,13 +1138,15 @@ class App(tk.Tk):
         self.log.delete("1.0", "end")
         self._log(tr("{n} IGC-Dateien gefunden. Starte Auswertung...", n=len(igc_files)))
 
-        results = []
+        results = {}
+        flights = {}
         for fname in igc_files:
             path = os.path.join(src, fname)
             try:
                 flight = parse_igc(path)
                 result = evaluate_pilot(flight, task)
-                results.append(result)
+                results[fname] = result
+                flights[fname] = flight
                 out_name = os.path.splitext(fname)[0] + "_cyl.igc"
                 write_output_igc(flight, result.start, task, os.path.join(dst, out_name))
                 sev = result.worst_sev
@@ -999,8 +1168,25 @@ class App(tk.Tk):
                 self._log(tr("[FEHLER] {fname}: {e}", fname=fname, e=e))
                 self._log(traceback.format_exc())
 
-        report_path = os.path.join(dst, tr("Zylinderabflug_Report.xlsx"))
-        task_summary = {
+        self._run_data = {"task": task, "flights": flights, "results": results,
+                          "dst": dst, "summary": self._build_task_summary(task)}
+        try:
+            report_path = self._write_report()
+        except OSError as e:
+            self._log(tr("[FEHLER] Report konnte nicht geschrieben werden: {e}", e=e))
+            messagebox.showerror(tr("Fehler"), tr(
+                "Der Report konnte nicht geschrieben werden (ist die Datei in Excel geöffnet?):\n{e}", e=e))
+            return
+        self.btn_choose.config(state="normal" if results else "disabled")
+        self._log("\n" + tr("Fertig. Report: {p}", p=report_path))
+        if results:
+            self._log(tr("Hinweis: Über \"Andere Abflüge wählen...\" lassen sich einzelne Starts "
+                         "manuell ändern (z. B. anderer PEV oder Ausflug)."))
+        messagebox.showinfo(tr("Fertig"), tr("{n} Piloten ausgewertet.\nReport: {p}", n=len(results), p=report_path))
+
+    # ------------------------------------------------------------------
+    def _build_task_summary(self, task):
+        return {
             tr("Start-Zylinder"): tr("{lat:.5f}, {lon:.5f}  (Radius {r:.0f} m)",
                                      lat=task.start_lat, lon=task.start_lon, r=task.start_radius_m),
             tr("Wertungstag"): task.date_str,
@@ -1014,9 +1200,51 @@ class App(tk.Tk):
                                       if task.ref_elevation_m is not None
                                       else tr("aus (Druckhöhe unkalibriert)")),
         }
-        write_report_xlsx(results, report_path, task_summary)
-        self._log("\n" + tr("Fertig. Report: {p}", p=report_path))
-        messagebox.showinfo(tr("Fertig"), tr("{n} Piloten ausgewertet.\nReport: {p}", n=len(results), p=report_path))
+
+    def _write_report(self):
+        rd = self._run_data
+        report_path = os.path.join(rd["dst"], tr("Zylinderabflug_Report.xlsx"))
+        write_report_xlsx(list(rd["results"].values()), report_path, rd["summary"])
+        return report_path
+
+    def _open_choice(self):
+        if not self._run_data:
+            return
+        if self._choice_dlg is not None and self._choice_dlg.winfo_exists():
+            self._choice_dlg.lift()
+            self._choice_dlg.focus_set()
+            return
+        self._choice_dlg = StartChoiceDialog(self)
+
+    def _apply_start_choice(self, fname, key):
+        """Wertet einen Piloten mit manuell gewaehltem Start (key) bzw. automatisch (None)
+        neu aus, schreibt die IGC-Kopie und den Report neu. Gibt True bei Erfolg zurueck."""
+        rd = self._run_data
+        task, flight = rd["task"], rd["flights"][fname]
+        try:
+            result = evaluate_pilot(flight, task, forced=key)
+            out_name = os.path.splitext(fname)[0] + "_cyl.igc"
+            write_output_igc(flight, result.start, task, os.path.join(rd["dst"], out_name))
+        except Exception as e:
+            messagebox.showerror(tr("Fehler"), tr("[FEHLER] {fname}: {e}", fname=fname, e=e))
+            return False
+        rd["results"][fname] = result
+        if key is None:
+            self._log(tr("Start von {pilot} ({fname}) auf automatische Wertung zurückgesetzt: {t} UTC ({method})",
+                         pilot=result.pilot or tr("(ohne Namen)"), fname=fname,
+                         t=seconds_to_hms(result.start.time_s), method=method_label(result.start.method)))
+        else:
+            self._log(tr("Start von {pilot} ({fname}) manuell geändert: {t} UTC ({method})",
+                         pilot=result.pilot or tr("(ohne Namen)"), fname=fname,
+                         t=seconds_to_hms(result.start.time_s), method=method_label(result.start.method)))
+        try:
+            self._write_report()
+        except OSError as e:
+            messagebox.showerror(tr("Fehler"), tr(
+                "Der Report konnte nicht geschrieben werden (ist die Datei in Excel geöffnet?):\n{e}\n"
+                "Die IGC-Kopie wurde aktualisiert. Bitte die Datei schließen und den Start erneut übernehmen.", e=e))
+            return False
+        return True
 
 
 def main():

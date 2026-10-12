@@ -215,3 +215,26 @@ nicht ohnehin schon tut.
   sich aus den Dateien eines einzelnen Tages nicht ableiten.
 - Oberfläche und Excel-Report gibt es auf Deutsch und Englisch (`i18n.py`,
   `en_dict.py`); der deutsche Text ist zugleich der Übersetzungsschlüssel.
+
+## 10. Manuelle Startwahl durch die Wettbewerbsleitung
+
+Die Referenzimplementierung erlaubt es, den automatischen Start je Pilot zu
+überschreiben (`zylinder_core.list_start_options()`,
+`evaluate_pilot(..., forced=(art, zeit_s))`):
+
+- **Angebotene Optionen:** jeder PEV *im* Startzylinder (auch PEVs vor der
+  Toröffnung und durch die 30-Sekunden-Regel zusammengefasste PEVs) plus der
+  erste Ausflug aus dem Zylinder nach dem letzten gültigen PEV (ohne gültigen
+  PEV: alle Ausflüge nach Toröffnung). PEVs außerhalb des Zylinders werden
+  nicht angeboten.
+- **Information je Option:** Abstand zum Zylinderrand, Aufgabenfortschritt ab
+  diesem Start, Start-Groundspeed, Strafzeit und Texte, warum der Start
+  eigentlich nicht zählt (vor Toröffnung, in 30-s-Gruppe zusammengefasst,
+  nicht der letzte gültige PEV, Intervall zum vorherigen PEV unter dem
+  Minimum, weniger Aufgabenfortschritt als der gewertete Start, Groundspeed
+  über dem Limit).
+- **Auswertung mit erzwungenem Start:** alle übrigen Regeln gelten weiter
+  (Intervallstrafe gegen den vorherigen gültigen PEV, +5 Minuten bei Ausflug,
+  Speed- und Höhenverlust-Strafen). Das Ergebnis trägt den Hinweis "START
+  MANUELL GEWÄHLT" (gelb), damit die Entscheidung dokumentiert werden kann.
+

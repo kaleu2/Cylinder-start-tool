@@ -64,13 +64,17 @@ Tage mit Linien- oder Sektorstart werden von diesem Tool **nicht** bearbeitet
    **rot** = Strafe oder ungültig, **gelb** = bitte manuell prüfen,
    **grau** = nur Hinweis (z. B. normale Außenlandung). Zuerst alle roten und
    gelben Zeilen ansehen.
-8. **In SeeYou Competition werten:** die Aufgabe des Tages mit "Aufgabe aus
+8. *(Optional)* **Start manuell ändern** - wenn die Wettbewerbsleitung
+   entscheidet, dass für einen Piloten ein anderer PEV (oder der Ausflug aus
+   dem Zylinder) gelten soll, auf **"Andere Abflüge wählen..."** klicken (siehe
+   [Anderen Start manuell wählen](#anderen-start-manuell-wählen)).
+9. **In SeeYou Competition werten:** die Aufgabe des Tages mit "Aufgabe aus
    IGC-Datei nutzen" setzen (eine der Kopien aus dem Zielordner wählen) und die
    Flüge aus dem Zielordner einlesen. Der Start jedes Piloten ist jetzt der
    1-m-Zylinder an seinem gewerteten Startfix, SeeYou berechnet Startzeit und
    -höhe also korrekt. (Die Menünamen können je nach SeeYou-Version leicht
    abweichen.)
-9. **Strafen manuell in SeeYou eintragen:** der Report enthält je Pilot die
+10. **Strafen manuell in SeeYou eintragen:** der Report enthält je Pilot die
    Zeitstrafe (+5 min bei Exit-Start oder zu kurzem PEV-Abstand) und die Punkte
    für zu hohen Groundspeed und Höhenverlust.
 
@@ -159,6 +163,37 @@ Quellcode (Möglichkeiten 2 und 3) im selben Ordner liegen.
 - **Ist das Fenster größer als der Bildschirm**: den Scrollbalken rechts oder
   das Mausrad benutzen. Die Knöpfe "Parameter laden/speichern" und
   "Auswertung starten" unten bleiben immer sichtbar.
+
+## Anderen Start manuell wählen
+
+Die automatische Auswertung wendet Annex A 7.4.4 an (letzter gültiger PEV im
+Zylinder, sonst der Ausflug). Entscheidet die Wettbewerbsleitung für einen
+Piloten anders:
+
+1. Die Auswertung wie gewohnt durchführen. Danach wird der Button **"Andere
+   Abflüge wählen..."** (unten rechts) aktiv - das Fenster wird **nicht**
+   automatisch geöffnet.
+2. Im oberen Feld den Piloten wählen. Die untere Liste zeigt **alle PEVs im
+   Startzylinder** (auch solche vor der Toröffnung oder innerhalb von 30 s nach
+   einem anderen PEV) und den **Ausflug aus dem Zylinder nach dem letzten
+   gültigen PEV**. Zu jedem Start stehen Abstand zum Zylinderrand, danach
+   erreichte Aufgabenpunkte, Groundspeed und Strafzeit dabei. Das Textfeld
+   darunter erklärt, **warum ein Start eigentlich nicht zählt** (z. B. "nicht
+   der letzte PEV", "vor Toröffnung", "weniger als 10 min nach dem vorherigen
+   PEV", "Groundspeed über dem Limit").
+3. Start markieren und auf **"Diesen Start übernehmen"** klicken. Der Pilot
+   wird mit diesem Start neu ausgewertet (Strafen, Geschwindigkeit und
+   Höhenverlust nach den üblichen Regeln), die IGC-Kopie erhält den neuen
+   1-m-Startzylinder und der Excel-Report wird sofort neu geschrieben -
+   **vorher den Report in Excel schließen**, sonst sperrt Windows die Datei.
+   Die Zeile wird gelb markiert mit dem Hinweis "START MANUELL GEWÄHLT"
+   (Entscheidung bitte dokumentieren).
+4. "Auf automatische Wertung zurücksetzen" macht die Wahl für den gewählten
+   Piloten rückgängig.
+
+PEVs **außerhalb** des Zylinders werden nicht angeboten (sie haben nach Annex A
+keine Wirkung). Die manuellen Wahlen werden nicht gespeichert: nach einer
+neuen Auswertung sind alle Piloten wieder auf der automatischen Wertung.
 
 ## Sprache
 
