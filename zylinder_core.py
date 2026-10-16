@@ -1044,3 +1044,30 @@ def write_output_igc(flight: IGCFlight, start: StartResult, task: TaskParams, ou
     with open(out_path, 'w', encoding='latin-1', errors='replace', newline='') as f:
         for ln in out_lines:
             f.write(ln + '\r\n')
+
+
+def read_igc_header(path: str) -> dict:
+    """Liest nur den Kopf einer IGC-Datei (bis zum ersten B-Record): Logger-ID aus dem
+    A-Record (3 Zeichen Hersteller + 3 Zeichen Seriennummer), Datum, Pilot, Kennung."""
+    h = {"mfr": "", "serial": "", "date_str": "", "pilot": "", "comp_id": ""}
+    with open(path, 'r', encoding='latin-1', errors='replace') as f:
+        for line in f:
+            line = line.rstrip('\r\n')
+            if not line:
+                continue
+            rec = line[0]
+            if rec == 'B':
+                break
+            if rec == 'A' and not h["mfr"]:
+                h["mfr"] = line[1:4].strip()
+                h["serial"] = line[4:7].strip()
+            elif line.startswith('HFDTE') and not h["date_str"]:
+                m = re.search(r'(\d{2})(\d{2})(\d{2})', line.split(':', 1)[-1])
+                if m:
+                    dd, mm, yy = m.groups()
+                    h["date_str"] = f"{dd}.{mm}.20{yy}"
+            elif line.startswith('HFPLTPILOT') and not h["pilot"]:
+                h["pilot"] = line.split(':', 1)[-1].strip()
+            elif line.startswith('HFCIDCOMPETITIONID'):
+                h["comp_id"] = line.split(':', 1)[-1].strip()
+    return h

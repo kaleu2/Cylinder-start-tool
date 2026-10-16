@@ -14,8 +14,8 @@ scored by SeeYou Competition) and produces:
   "Use task from IGC file". If a file already contains a SoaringSpot task block
   (e.g. on a second run), only the start line in it is replaced instead of
   appending everything again.
-- **One common report** (`Cylinder_Start_Report.xlsx`, German UI language:
-  `Zylinderabflug_Report.xlsx`) with start method, start/finish altitude (baro),
+- **One common report** (`Cylinder_Start_Report_DDMMYYYY.xlsx`, German UI language:
+  `Zylinderabflug_Report_DDMMYYYY.xlsx`; the contest day is part of the name) with start method, start/finish altitude (baro),
   groundspeed, loss of height, penalty points and all remarks per pilot.
 
 Line and sector start days are **not** handled by this tool (SeeYou does that
@@ -58,7 +58,7 @@ itself) - only use it for days with a cylinder start.
    - Optionally: **adjust baro** to the airfield elevation (see below).
 6. Click **"Start evaluation"**. The log shows the progress; when it is done,
    the target folder contains the IGC copies and the Excel report.
-7. **Read the report** (`Cylinder_Start_Report.xlsx`) before going on - the
+7. **Read the report** (`Cylinder_Start_Report_DDMMYYYY.xlsx`) before going on - the
    button **"Open report"** at the bottom opens it directly in Excel. Every
    pilot has one row, coloured by the most severe remark:
    **red** = penalty or invalid, **yellow** = please check manually,
@@ -80,6 +80,62 @@ itself) - only use it for days with a cylinder start.
 
 The next day: start the program again - folders, parameters and the CUP file
 are remembered; only today's date and the gate opening are reset.
+
+## Auto evaluate (during the contest day)
+
+For days on which the pilots' files arrive one after another:
+
+1. Fill in the task and parameters as usual, then click **"Start auto
+   evaluate"**. First all IGC files already in the source folder are evaluated
+   (like "Start evaluation").
+2. From then on the tool checks the source folder **every 60 seconds**. Only
+   **new or changed** files are evaluated; they are added to the Excel report
+   and to the pilot list of "Choose other starts...". Files that are still
+   being copied (younger than 5 s) wait for the next check.
+3. The report is sorted by **competition ID** (pilots without ID at the end).
+4. **"Recalculate all"** evaluates every file again (e.g. after a correction).
+   Manual start choices are asked pilot by pilot (yes / no / yes to all / no to
+   all / cancel).
+5. **Changing a parameter** while auto evaluate runs asks whether to
+   recalculate all flights or to discard the change.
+6. **Report open in Excel?** Windows blocks the file. A red banner appears,
+   the tool retries every 10 s (or click "Try again now"). Close the report in
+   Excel; nothing is lost.
+7. Stop with **"Stop auto evaluate"**. "Start evaluation" is disabled while
+   auto evaluate is running.
+
+## Several classes / days at the same time
+
+Tick **"Evaluate several classes / days at the same time"** (top of the form).
+Every class (or every day) then gets its **own tab** at the top with its own
+task, parameters, folders and report (`Cylinder_Start_Report_<class>_DDMMYYYY.xlsx`).
+The tab name is the class name. "New tab..." copies the current tab as a
+template - also use it for the **same class on another day** (e.g. files handed
+in late from the previous day): copy the tab, set the other contest day.
+
+How files are assigned to the classes:
+- **Separate folders**: each tab has its own source folder (target folders can
+  be different or the same - the report names contain class and day).
+- **Logger ID (flight recorder ID)**: all files can be in one folder. The list
+  has two columns, logger ID and class (the class must be the tab name). Load it
+  from a CSV/TXT (`;`, `,` or tab) or Excel file (first two columns) and/or edit
+  it in the table. The logger ID is read from the A record of the IGC file
+  (e.g. `ALXV8NQ...` -> `8NQ`; `LXV8NQ` also works). Please check with one of
+  your own files that the IDs in your list match.
+- **Only flights whose IGC date matches the contest day of the tab**: files
+  with another date are skipped. A file that fits **no** tab is not evaluated
+  but reported in the log ("NOT ASSIGNED") and counted in the status line; it is
+  picked up automatically as soon as the list or a tab is completed.
+
+"Start evaluation", "Recalculate all" and "Choose other starts..." work on the
+current tab; **Auto evaluate runs for all tabs**. Changing the assignment
+(method, logger list, date filter) while auto evaluate runs asks whether to
+recalculate all tabs or discard the change; to switch the option on or off,
+stop auto evaluate first.
+
+**Save manual start choices** (option in the "Folders" box): manual choices are
+written next to the report (`..._manual.json`) and applied again after a
+restart, if the IGC file is unchanged.
 
 ## Where the task comes from - three ways
 
@@ -186,8 +242,7 @@ for a pilot:
 4. "Reset to automatic result" undoes the choice for the selected pilot.
 
 PEVs **outside** the cylinder are not offered (they have no effect according
-to Annex A). The manual choices are not stored: after a new evaluation run
-all pilots are back to the automatic result.
+to Annex A). Manual choices are only kept after a restart if "Save manual start choices" is ticked; otherwise a new evaluation run resets all pilots to the automatic result.
 
 ## Language
 

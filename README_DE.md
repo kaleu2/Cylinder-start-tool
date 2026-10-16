@@ -14,8 +14,8 @@ Wertungstag aus den rohen, von den Piloten eingesandten IGC-Dateien aus
   "Aufgabe aus IGC-Datei nutzen". Enthält die Datei bereits einen
   SoaringSpot-Aufgabenblock (z. B. bei einem zweiten Lauf), wird darin nur die
   Start-Zeile ersetzt statt alles neu anzuhängen.
-- **einen gemeinsamen Report** (`Zylinderabflug_Report.xlsx`, englisch:
-  `Cylinder_Start_Report.xlsx`) mit Startmethode, Start-/Zielhöhe (Baro),
+- **einen gemeinsamen Report** (`Zylinderabflug_Report_TTMMJJJJ.xlsx`, englisch:
+  `Cylinder_Start_Report_DDMMYYYY.xlsx`; der Wertungstag steckt im Namen) mit Startmethode, Start-/Zielhöhe (Baro),
   Groundspeed, Höhenverlust, Strafpunkten und allen Besonderheiten je Pilot.
 
 Tage mit Linien- oder Sektorstart werden von diesem Tool **nicht** bearbeitet
@@ -59,7 +59,7 @@ Tage mit Linien- oder Sektorstart werden von diesem Tool **nicht** bearbeitet
    - Optional: **Baro kalibrieren** auf die Platzhöhe (siehe unten).
 6. Auf **"Auswertung starten"** klicken. Das Protokoll zeigt den Fortschritt;
    danach liegen im Zielordner die IGC-Kopien und der Excel-Report.
-7. **Report lesen** (`Zylinderabflug_Report.xlsx`), bevor es weitergeht - der
+7. **Report lesen** (`Zylinderabflug_Report_TTMMJJJJ.xlsx`), bevor es weitergeht - der
    Button **"Report öffnen"** unten öffnet ihn direkt in Excel. Jeder
    Pilot hat eine Zeile, eingefärbt nach der schwersten Anmerkung:
    **rot** = Strafe oder ungültig, **gelb** = bitte manuell prüfen,
@@ -82,6 +82,67 @@ Tage mit Linien- oder Sektorstart werden von diesem Tool **nicht** bearbeitet
 Am nächsten Tag das Programm einfach wieder starten - Ordner, Parameter und
 CUP-Datei sind gespeichert; nur das heutige Datum und die Toröffnung werden
 zurückgesetzt.
+
+## Auto-Auswertung (während des Wertungstags)
+
+Für Tage, an denen die Dateien der Piloten nach und nach eintreffen:
+
+1. Aufgabe und Parameter wie gewohnt eintragen, dann **"Auto-Auswertung
+   starten"** klicken. Zuerst werden alle IGC-Dateien im Quellordner
+   ausgewertet (wie "Auswertung starten").
+2. Danach prüft das Tool **alle 60 Sekunden** den Quellordner. Nur **neue oder
+   geänderte** Dateien werden ausgewertet und zum Excel-Report sowie zur
+   Pilotenliste von "Andere Abflüge wählen..." hinzugefügt. Dateien, die gerade
+   noch kopiert werden (jünger als 5 s), warten bis zur nächsten Prüfung.
+3. Der Report ist nach **Kennung** sortiert (Piloten ohne Kennung am Ende).
+4. **"Alle neu berechnen"** wertet alle Dateien erneut aus. Manuell gewählte
+   Starts werden pilotenweise abgefragt (Ja / Nein / Alle ja / Alle nein /
+   Abbrechen).
+5. **Parameter ändern** während der Auto-Auswertung: das Tool fragt, ob alle
+   Flüge neu berechnet oder die Änderung verworfen werden soll.
+6. **Report in Excel geöffnet?** Windows sperrt die Datei. Ein roter Hinweis
+   erscheint, das Tool versucht es alle 10 s erneut (oder "Jetzt erneut
+   versuchen"). Report in Excel schließen - es geht nichts verloren.
+7. Beenden mit **"Auto-Auswertung stoppen"**. "Auswertung starten" ist
+   währenddessen gesperrt.
+
+## Mehrere Klassen / Tage gleichzeitig
+
+Oben **"Mehrere Klassen / Tage gleichzeitig auswerten"** anhaken. Jede Klasse
+(oder jeder Tag) bekommt dann einen **eigenen Reiter** mit eigener Aufgabe,
+eigenen Parametern, Ordnern und Report
+(`Zylinderabflug_Report_<Klasse>_TTMMJJJJ.xlsx`). Der Reitername ist der
+Klassenname. "Neuer Reiter..." kopiert den aktuellen Reiter als Vorlage - auch
+für **dieselbe Klasse an einem anderen Tag** (z. B. nachgereichte Dateien vom
+Vortag): Reiter kopieren, anderen Wertungstag einstellen.
+
+Zuordnung der Dateien zu den Klassen:
+- **Getrennte Ordner**: jeder Reiter hat seinen eigenen Quellordner (die
+  Zielordner können verschieden oder gleich sein - die Report-Namen enthalten
+  Klasse und Tag).
+- **Logger-ID (Flightrecorder-ID)**: alle Dateien können in einem Ordner
+  liegen. Die Liste hat zwei Spalten, Logger-ID und Klasse (Klasse = Reitername).
+  Sie lässt sich aus einer CSV/TXT-Datei (`;`, `,` oder Tab) oder Excel-Datei
+  (erste zwei Spalten) laden und/oder in der Tabelle bearbeiten. Die Logger-ID
+  wird aus dem A-Record der IGC-Datei gelesen (z. B. `ALXV8NQ...` -> `8NQ`;
+  `LXV8NQ` funktioniert ebenfalls). Bitte mit einer eigenen Datei prüfen, dass
+  die IDs der Liste passen.
+- **Nur Flüge mit passendem IGC-Datum**: Dateien mit anderem Datum werden
+  übersprungen. Passt eine Datei zu **keinem** Reiter, wird sie nicht
+  ausgewertet, sondern im Protokoll gemeldet ("NICHT ZUGEORDNET") und in der
+  Statuszeile gezählt; sie wird automatisch nachgeholt, sobald Liste oder
+  Reiter ergänzt sind.
+
+"Auswertung starten", "Alle neu berechnen" und "Andere Abflüge wählen..."
+wirken auf den aktuellen Reiter; die **Auto-Auswertung läuft für alle
+Reiter**. Wird die Zuordnung (Methode, Logger-Liste, Datumsfilter) während der
+Auto-Auswertung geändert, fragt das Tool, ob alle Reiter neu berechnet oder
+die Änderung verworfen werden soll. Die Option selbst lässt sich nur bei
+gestoppter Auto-Auswertung ein-/ausschalten.
+
+**Manuelle Startwahlen speichern** (Option im Kasten "Ordner"): die Wahlen
+werden neben dem Report gespeichert (`..._manuell.json`) und nach einem
+Neustart wieder angewendet, sofern die IGC-Datei unverändert ist.
 
 ## Woher die Aufgabe kommt - drei Wege
 

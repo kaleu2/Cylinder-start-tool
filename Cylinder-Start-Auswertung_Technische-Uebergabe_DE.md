@@ -238,3 +238,9 @@ Die Referenzimplementierung erlaubt es, den automatischen Start je Pilot zu
   Speed- und Höhenverlust-Strafen). Das Ergebnis trägt den Hinweis "START
   MANUELL GEWÄHLT" (gelb), damit die Entscheidung dokumentiert werden kann.
 
+
+## 11. Auto-Auswertung
+`_auto_toggle` führt eine Vollauswertung aus, danach ruft `_tick` (1-s-Timer) alle 60 s `_auto_cycle` auf: nur Dateien mit geänderter (mtime,size) gegenüber `_run_data['processed']` werden ausgewertet; Dateien jünger als 5 s werden verschoben. Ergebnisse werden nach Kennung sortiert (leer zuletzt), der Report (`..._TTMMJJJJ.xlsx`) neu geschrieben; gesperrter Report setzt `_report_pending` (roter Hinweis, Wiederholung alle 10 s). Parameteränderung im Auto-Modus öffnet Dialog Neuberechnen/Verwerfen (`_handle_param_change`). "Alle neu berechnen" fragt pro manuellem Start (Ja/Nein/Alle ja/Alle nein/Abbrechen). Getestet mit 4 echten IGC-Dateien in Stufen (gt11.py); unter Windows noch nicht getestet.
+
+## 12. Mehrere Klassen / Tage
+Jobs (`self.jobs`, Reiter je Klasse+Tag) halten `state` (Formular-Stand), `run` (Ergebnisse), `snapshot`, `auto`, Report-Sperr-Flags; `_run_data` ist Property auf den aktuellen Job. Zuordnung in `_check_file` (Ordner-/Logger-Modus über `read_igc_header`, A-Record Seriennummer oder Hersteller+Seriennummer, optionaler Datumsfilter); nicht zuordenbare Dateien werden einmal protokolliert (`_scan_unassigned`). Die Auto-Auswertung durchläuft alle Auto-Jobs; geänderte Zuordnung (`_global_state`) fragt Neuberechnen/Verwerfen. Report-/Manuell-Dateinamen enthalten Klasse und Tag (`_report_file`). Getestet mit den vier echten IGC-Dateien (gt12.py, gt13.py); das Logger-ID-Format echter Wettbewerbslisten ist nicht verifiziert.

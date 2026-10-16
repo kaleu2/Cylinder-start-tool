@@ -236,3 +236,9 @@ pilot (`zylinder_core.list_start_options()`, `evaluate_pilot(..., forced=(kind, 
   loss-of-height penalties). The result carries the remark "START CHOSEN
   MANUALLY" (yellow) so the decision can be documented.
 
+
+## 11. Auto evaluate
+`_auto_toggle` runs a full evaluation, then `_tick` (1 s timer) calls `_auto_cycle` every 60 s: only files whose (mtime,size) differ from `_run_data['processed']` are evaluated; files younger than 5 s are deferred. Results are re-sorted by comp ID (empty last) and the report (`..._DDMMYYYY.xlsx`) is rewritten; a locked report sets `_report_pending` (red banner, retry every 10 s). Parameter changes during auto mode open a recalc/discard dialog (`_handle_param_change`). "Recalculate all" asks per manual start (yes/no/all yes/all no/cancel). Tested with 4 real IGC files in staged runs (gt11.py); not yet tested on Windows.
+
+## 12. Several classes / days
+Jobs (`self.jobs`, tab per class+day) each hold `state` (form snapshot), `run` (results), `snapshot`, `auto`, report-lock flags; `_run_data` is a property on the current job. Assignment in `_check_file` (folder mode / logger mode via `read_igc_header` A-record serial or manufacturer+serial, optional date filter); unmatched files are logged once (`_scan_unassigned`). Auto evaluate cycles all auto jobs; a changed assignment (`_global_state`) asks recalc/discard. Report/manual-choice file names contain class and day (`_report_file`). Tested with the four real IGC files (gt12.py, gt13.py); the logger ID format of real contest lists is not verified.
